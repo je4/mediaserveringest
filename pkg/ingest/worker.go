@@ -2,6 +2,7 @@ package ingest
 
 import (
 	"emperror.dev/errors"
+	"github.com/je4/utils/v2/pkg/zLogger"
 	"io"
 	"sync"
 	"time"
@@ -13,20 +14,24 @@ type JobStruct struct {
 	urn        string
 }
 
-func NewWorkerPool(num int, ingestTimeout time.Duration) io.Closer {
+func NewWorkerPool(num int, ingestTimeout time.Duration, doIt func(job *JobStruct) error, logger zLogger.ZLogger) (chan *JobStruct, io.Closer) {
 	wp := &workerPool{
 		jobChan:       make(chan *JobStruct),
 		wg:            &sync.WaitGroup{},
 		ingestTimeout: ingestTimeout,
+		doIt:          doIt,
+		logger:        logger,
 	}
 	wp.Start(num)
-	return wp
+	return wp.jobChan, wp
 }
 
 type workerPool struct {
 	jobChan       chan *JobStruct
 	wg            *sync.WaitGroup
 	ingestTimeout time.Duration
+	doIt          func(job *JobStruct) error
+	logger        zLogger.ZLogger
 }
 
 func (wp *workerPool) Start(num int) {
@@ -56,7 +61,9 @@ func (wp *workerPool) AddWorker() {
 	go func() {
 		for job := range wp.jobChan {
 			// process job
-			_ = job
+			if err := wp.doIt(job); err != nil {
+				wp.logger.Error().Err(err).Msg("error processing job")
+			}
 		}
 	}()
 }

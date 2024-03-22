@@ -3,11 +3,14 @@ package main
 import (
 	"context"
 	"flag"
+	"fmt"
+	"github.com/je4/filesystem/v2/pkg/vfsrw"
 	"github.com/je4/indexer/v2/pkg/indexer"
 	mediaserverdbClient "github.com/je4/mediaserverdb/v2/pkg/client"
 	"github.com/je4/mediaserverdb/v2/pkg/mediaserverdbproto"
 	"github.com/je4/mediaserveringest/v2/config"
 	"github.com/je4/mediaserveringest/v2/internal"
+	"github.com/je4/mediaserveringest/v2/pkg/ingest"
 	"github.com/je4/trustutil/v2/pkg/loader"
 	"github.com/je4/utils/v2/pkg/zLogger"
 	"github.com/rs/zerolog"
@@ -16,7 +19,9 @@ import (
 	"io/fs"
 	"log"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"syscall"
 	"time"
 )
 
@@ -80,6 +85,51 @@ func main() {
 		}
 	}
 
+	vfs, err := vfsrw.NewFS(conf.VFS, zLogger.NewZWrapper(logger))
+	if err != nil {
+		logger.Panic().Err(err).Msg("cannot create vfs")
+	}
+	defer func() {
+		if err := vfs.Close(); err != nil {
+			logger.Error().Err(err).Msg("cannot close vfs")
+		}
+	}()
+
+	/*
+		var src = "vfs://test/ub-reprofiler/mets-container-doi/bau_1/2023/9940561370105504/10_3931_e-rara-20425_20230519T104744_gen6_ver1.zip/10_3931_e-rara-20425/export_mets.xml"
+		var dst = "vfs://tests3/zhbluzern-test/target/export_mets.xml"
+		sourceFP, err := vfs.Open(src)
+		if err != nil {
+			logger.Fatal().Err(err).Msgf("cannot open source file %s", src)
+		}
+		defer sourceFP.Close()
+
+		time.Now().Format(time.DateTime)
+		targetFP, err := vfs.Create(dst)
+		if err != nil {
+			logger.Fatal().Err(err).Msgf("cannot create target file %s", dst)
+		}
+		defer targetFP.Close()
+
+		fi, err := sourceFP.Stat()
+		if err != nil {
+			logger.Fatal().Err(err).Msgf("cannot stat %s", src)
+		}
+		bar := progressbar.DefaultBytes(
+			fi.Size(),
+			"copying",
+		)
+		if num, err := io.Copy(io.MultiWriter(bar, targetFP), sourceFP); err != nil {
+			logger.Fatal().Err(err).Msgf("cannot copy from %s to %s", src, dst)
+		} else {
+			logger.Info().Msgf("copied %d bytes from %s to %s", num, src, dst)
+
+		}
+
+		return
+
+	*/
+
 	var fss = map[string]fs.FS{"internal": internal.InternalFS}
 
 	indexerActions, err := indexer.InitActionDispatcher(fss, *conf.Indexer, zLogger.NewZWrapper(logger))
@@ -87,5 +137,20 @@ func main() {
 		logger.Panic().Err(err).Msg("cannot init indexer")
 	}
 
-	_ = indexerActions
+	ingester, err := ingest.NewIngester(indexerActions, dbClient, vfs, conf.ConcurrentTasks, time.Duration(conf.IngestTimeout), time.Duration(conf.IngestWait), logger)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("cannot create ingester")
+	}
+	if err := ingester.Start(); err != nil {
+		logger.Fatal().Err(err).Msg("cannot start ingester")
+	}
+
+	done := make(chan os.Signal, 1)
+	signal.Notify(done, syscall.SIGINT, syscall.SIGTERM, syscall.SIGKILL)
+	fmt.Println("press ctrl+c to stop server")
+	s := <-done
+	fmt.Println("got signal:", s)
+
+	defer ingester.Close()
+
 }
