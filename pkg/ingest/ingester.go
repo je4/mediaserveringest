@@ -2,7 +2,7 @@ package ingest
 
 import (
 	"context"
-	"errors"
+	"emperror.dev/errors"
 	"github.com/je4/indexer/v2/pkg/indexer"
 	"github.com/je4/mediaserverdb/v2/pkg/mediaserverdbproto"
 	"github.com/je4/utils/v2/pkg/zLogger"
@@ -11,6 +11,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 	"io"
 	"io/fs"
+	"path/filepath"
 	"time"
 )
 
@@ -49,6 +50,18 @@ type Ingester struct {
 }
 
 func (i *Ingester) doIngest(job *JobStruct) error {
+	i.logger.Debug().Msgf("ingest %s/%s", job.collection, job.signature)
+	fp, err := i.vfs.Open(job.urn)
+	if err != nil {
+		return errors.Wrapf(err, "cannot open %s", job.urn)
+	}
+	defer fp.Close()
+	name := filepath.Base(job.urn)
+	result, err := i.indexer.Stream(fp, []string{name}, []string{"siegfried", "ffprobe", "tika", "identify", "xml"})
+	if err != nil {
+		return errors.Wrapf(err, "cannot index %s", job.urn)
+	}
+	i.logger.Debug().Msgf("%s/%s: %s/%s", job.collection, job.signature, result.Type, result.Subtype)
 	return nil
 }
 
