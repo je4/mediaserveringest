@@ -3,6 +3,7 @@ package ingest
 import (
 	"context"
 	"emperror.dev/errors"
+	"github.com/je4/filesystem/v2/pkg/writefs"
 	"github.com/je4/indexer/v2/pkg/indexer"
 	"github.com/je4/mediaserverdb/v2/pkg/mediaserverdbproto"
 	"github.com/je4/utils/v2/pkg/zLogger"
@@ -12,6 +13,7 @@ import (
 	"io"
 	"io/fs"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -48,20 +50,74 @@ type Ingester struct {
 	logger        zLogger.ZLogger
 	vfs           fs.FS
 }
+type WriterNopcloser struct {
+	io.Writer
+}
+
+func (WriterNopcloser) Close() error { return nil }
 
 func (i *Ingester) doIngest(job *JobStruct) error {
-	i.logger.Debug().Msgf("ingest %s/%s", job.collection, job.signature)
-	fp, err := i.vfs.Open(job.urn)
+	i.logger.Debug().Msgf("ingest %s/%s", job.collection.Name, job.signature)
+
+	var targetWriter io.WriteCloser
+	var err error
+	var cachePath string
+	switch job.ingestType {
+	case IngestType_KEEP:
+		cachePath = job.urn
+		targetWriter = WriterNopcloser{io.Discard}
+		i.logger.Debug().Msgf("keep %s/%s", job.collection.Name, job.signature)
+	case IngestType_COPY:
+		cacheName := createCacheName(job.collection.Name, job.signature, job.urn)
+		cachePath = strings.Join([]string{job.collection.Storage.Datadir, cacheName}, "/")
+		fullpath := strings.Join([]string{job.collection.Storage.Filebase, cachePath}, "/")
+		targetWriter, err = writefs.Create(i.vfs, fullpath)
+		i.logger.Debug().Msgf("copy %s/%s -> %s", job.collection.Name, job.signature, fullpath)
+	case IngestType_MOVE:
+		cacheName := createCacheName(job.collection.Name, job.signature, job.urn)
+		cachePath = strings.Join([]string{job.collection.Storage.Datadir, cacheName}, "/")
+		fullpath := strings.Join([]string{job.collection.Storage.Filebase, cachePath}, "/")
+		targetWriter, err = writefs.Create(i.vfs, fullpath)
+		i.logger.Debug().Msgf("move %s/%s -> %s", job.collection.Name, job.signature, fullpath)
+	default:
+		return errors.Errorf("unknown ingest type %d", job.ingestType)
+	}
 	if err != nil {
+		return errors.Wrapf(err, "cannot create %s", job.urn)
+	}
+
+	sourceReader, err := i.vfs.Open(job.urn)
+	if err != nil {
+		targetWriter.Close()
 		return errors.Wrapf(err, "cannot open %s", job.urn)
 	}
-	defer fp.Close()
+	defer sourceReader.Close()
+
 	name := filepath.Base(job.urn)
-	result, err := i.indexer.Stream(fp, []string{name}, []string{"siegfried", "ffprobe", "tika", "identify", "xml"})
+	pr, pw := io.Pipe()
+	var done = make(chan error)
+	go func() {
+		var resultErr error
+		i.logger.Debug().Msgf("start copying %s", job.urn)
+		if _, err := io.Copy(io.MultiWriter(targetWriter, pw), sourceReader); err != nil {
+			resultErr = errors.Wrapf(err, "cannot copy %s", job.urn)
+		}
+		pw.Close()
+		targetWriter.Close()
+		i.logger.Debug().Msgf("end copying %s", job.urn)
+		done <- resultErr
+		i.logger.Debug().Msgf("end copy func %s", job.urn)
+	}()
+	i.logger.Debug().Msgf("start indexing %s", job.urn)
+	result, err := i.indexer.Stream(pr, []string{name}, []string{"siegfried", "ffprobe", "tika", "identify", "xml"})
 	if err != nil {
 		return errors.Wrapf(err, "cannot index %s", job.urn)
 	}
-	i.logger.Debug().Msgf("%s/%s: %s/%s", job.collection, job.signature, result.Type, result.Subtype)
+	i.logger.Debug().Msgf("end indexing %s", job.urn)
+	if err := <-done; err != nil {
+		return errors.Wrapf(err, "cannot copy %s", job.urn)
+	}
+	i.logger.Debug().Msgf("%s/%s: %s/%s", job.collection.Name, job.signature, result.Type, result.Subtype)
 	return nil
 }
 
@@ -86,13 +142,26 @@ func (i *Ingester) Start() error {
 					i.logger.Error().Msg("empty identifier")
 					break
 				}
+
+				coll := item.GetCollection()
+				stor := coll.GetStorage()
 				job := &JobStruct{
-					collection: item.GetIdentifier().GetCollection(),
 					signature:  item.GetIdentifier().GetSignature(),
 					urn:        item.GetUrn(),
+					ingestType: IngestType(item.GetIngestType()),
+					collection: &collectionStruct{
+						Name: coll.GetName(),
+						Storage: &storageStruct{
+							Name:       stor.GetName(),
+							Filebase:   stor.GetFilebase(),
+							Datadir:    stor.GetDatadir(),
+							Subitemdir: stor.GetSubitemdir(),
+							Tempdir:    stor.GetTempdir(),
+						},
+					},
 				}
 				i.jobChan <- job
-				i.logger.Debug().Msgf("ingest item %s/%s", job.collection, job.signature)
+				i.logger.Debug().Msgf("ingest item %s/%s", job.collection.Name, job.signature)
 				// check for end without blocking
 				select {
 				case <-i.end:

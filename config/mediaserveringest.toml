@@ -64,7 +64,7 @@ ZipAsFolderCache = 0
 name = "testcache"
 type = "S3"
 [vfs.testcache.S3]
-AccessKeyID = "009145048a6e9c39de76"
+AccessKeyID = "AKIA312912CB2F7328D3"
 SecretAccessKey = "%%TESTCACHESECRET%%"
 Endpoint = "vip-ecs-ub.storage.p.unibas.ch"
 Region = ""

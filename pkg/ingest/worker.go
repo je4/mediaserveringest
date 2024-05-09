@@ -8,10 +8,43 @@ import (
 	"time"
 )
 
+type IngestType uint
+
+const (
+	IngestType_KEEP IngestType = iota
+	IngestType_COPY
+	IngestType_MOVE
+)
+
+var IngestTypeStrings = map[IngestType]string{
+	IngestType_KEEP: "keep",
+	IngestType_COPY: "copy",
+	IngestType_MOVE: "move",
+}
+
+var IngestTypeValues = map[string]IngestType{
+	"keep": IngestType_KEEP,
+	"copy": IngestType_COPY,
+	"move": IngestType_MOVE,
+}
+
+type storageStruct struct {
+	Name       string
+	Filebase   string
+	Datadir    string
+	Subitemdir string
+	Tempdir    string
+}
+type collectionStruct struct {
+	Name    string
+	Storage *storageStruct
+}
+
 type JobStruct struct {
-	collection string
+	collection *collectionStruct
 	signature  string
 	urn        string
+	ingestType IngestType
 }
 
 func NewWorkerPool(num int, ingestTimeout time.Duration, doIt func(job *JobStruct) error, logger zLogger.ZLogger) (chan *JobStruct, io.Closer) {
