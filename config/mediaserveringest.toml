@@ -1,11 +1,13 @@
 localaddr = "localhost:8761"
 loglevel = "DEBUG"
+resolveraddr = "[::1]:7777"
+resolvertimeout = "10m"
 concurrenttasks = 3 # number of concurrent must be less or equal to number of sessions in vfs
 ingesttimeout = "10m"
 ingestwait = "20s"
 
 [grpcclient]
-mediaserverdb = "localhost:7653"
+#mediaserverdb = "localhost:7653"
 
 [vfs.test]
 name = "test"

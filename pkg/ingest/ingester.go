@@ -3,6 +3,7 @@ package ingest
 import (
 	"context"
 	"emperror.dev/errors"
+	"encoding/json"
 	"github.com/je4/filesystem/v2/pkg/writefs"
 	"github.com/je4/indexer/v2/pkg/indexer"
 	"github.com/je4/mediaserverdb/v2/pkg/mediaserverdbproto"
@@ -109,15 +110,67 @@ func (i *Ingester) doIngest(job *JobStruct) error {
 		i.logger.Debug().Msgf("end copy func %s", job.urn)
 	}()
 	i.logger.Debug().Msgf("start indexing %s", job.urn)
-	result, err := i.indexer.Stream(pr, []string{name}, []string{"siegfried", "ffprobe", "tika", "identify", "xml"})
+	var objectType = "file"
+	var itemMetadata = &mediaserverdbproto.ItemMetadata{
+		Objecttype: &objectType,
+	}
+	var cacheMetadata = &mediaserverdbproto.CacheMetadata{
+		Action:      "item",
+		Params:      "",
+		StorageName: &job.collection.Storage.Name,
+		Path:        job.urn,
+	}
+	result, err := i.indexer.Stream(pr, []string{name}, []string{"siegfried", "ffprobe", "tika", "identify", "xml", "checksum"})
+	var resultErrs []error
 	if err != nil {
-		return errors.Wrapf(err, "cannot index %s", job.urn)
+		i.logger.Error().Err(err).Msgf("cannot index %s", job.urn)
+		resultErrs = append(resultErrs, err)
+	} else {
+		itemMetadata.Type = &result.Type
+		itemMetadata.Subtype = &result.Subtype
+		itemMetadata.Mimetype = &result.Mimetype
+		checksum, _ := result.Checksum["sha512"]
+		itemMetadata.Sha512 = &checksum
+		itemMetadata.Metadata, _ = json.Marshal(result.Metadata)
+
+		cacheMetadata.Width = int64(result.Width)
+		cacheMetadata.Height = int64(result.Height)
+		cacheMetadata.Duration = int64(result.Duration)
+		cacheMetadata.Size = int64(result.Size)
+		cacheMetadata.MimeType = result.Mimetype
+		cacheMetadata.Path = cachePath
+
 	}
 	i.logger.Debug().Msgf("end indexing %s", job.urn)
 	if err := <-done; err != nil {
-		return errors.Wrapf(err, "cannot copy %s", job.urn)
+		resultErrs = append(resultErrs, err)
+		i.logger.Error().Err(err).Msgf("cannot copy %s", job.urn)
 	}
 	i.logger.Debug().Msgf("%s/%s: %s/%s", job.collection.Name, job.signature, result.Type, result.Subtype)
+	var status = "ok"
+	var itemError = ""
+	if len(resultErrs) > 0 {
+		status = "error"
+		itemError = errors.Combine(resultErrs...).Error()
+	}
+	itemMetadata.Error = &itemError
+	if resp, err := i.dbClient.SetIngestItem(context.Background(), &mediaserverdbproto.IngestMetadata{
+		Item: &mediaserverdbproto.ItemIdentifier{
+			Collection: job.collection.Name,
+			Signature:  job.signature,
+		},
+		Status:        status,
+		ItemMetadata:  itemMetadata,
+		CacheMetadata: cacheMetadata,
+	}); err != nil {
+		return errors.Wrapf(err, "cannot set ingest item %s/%s", job.collection.Name, job.signature)
+	} else {
+		if resp.GetStatus() != mediaserverdbproto.ResultStatus_OK {
+			return errors.Errorf("cannot set ingest item %s/%s: %s", job.collection.Name, job.signature, resp.GetMessage())
+		} else {
+			i.logger.Debug().Msgf("set ingest item %s/%s: %s", job.collection.Name, job.signature, resp.GetMessage())
+		}
+	}
 	return nil
 }
 

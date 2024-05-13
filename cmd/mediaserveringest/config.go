@@ -12,15 +12,17 @@ import (
 )
 
 type MediaserverIngestConfig struct {
-	LocalAddr string `toml:"localaddr"`
-	LogFile   string `toml:"logfile"`
-	LogLevel  string `toml:"loglevel"`
+	LocalAddr       string              `toml:"localaddr"`
+	ResolverAddr    string              `toml:"resolveraddr"`
+	ResolverTimeout configutil.Duration `toml:"resolvertimeout"`
+	LogFile         string              `toml:"logfile"`
+	LogLevel        string              `toml:"loglevel"`
 
 	IngestTimeout   configutil.Duration `toml:"ingesttimeout"`
 	IngestWait      configutil.Duration `toml:"ingestwait"`
 	ConcurrentTasks int                 `toml:"concurrenttasks"`
 	GRPCClient      map[string]string   `toml:"grpcclient"`
-	Client          *loader.TLSConfig   `toml:"client"`
+	ClientTLS       *loader.TLSConfig   `toml:"client"`
 
 	Indexer *indexer.IndexerConfig
 

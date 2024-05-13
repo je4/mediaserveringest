@@ -1,6 +1,6 @@
 module github.com/je4/mediaserveringest/v2
 
-go 1.22.0
+go 1.22.2
 
 require (
 	emperror.dev/errors v0.8.1
@@ -8,7 +8,8 @@ require (
 	github.com/je4/filesystem/v2 v2.0.12
 	github.com/je4/indexer/v2 v2.0.10
 	github.com/je4/mediaserverdb/v2 v2.0.4
-	github.com/je4/trustutil/v2 v2.0.4
+	github.com/je4/miniresolver/v2 v2.0.0-20240512162956-b8b33705c0b1
+	github.com/je4/trustutil/v2 v2.0.5
 	github.com/je4/utils/v2 v2.0.33
 	github.com/rs/zerolog v1.32.0
 	google.golang.org/grpc v1.63.2

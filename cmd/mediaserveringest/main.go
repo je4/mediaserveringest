@@ -11,6 +11,8 @@ import (
 	"github.com/je4/mediaserveringest/v2/config"
 	"github.com/je4/mediaserveringest/v2/internal"
 	"github.com/je4/mediaserveringest/v2/pkg/ingest"
+	miniresolverClient "github.com/je4/miniresolver/v2/pkg/client"
+	"github.com/je4/miniresolver/v2/pkg/grpchelper"
 	"github.com/je4/trustutil/v2/pkg/loader"
 	"github.com/je4/utils/v2/pkg/zLogger"
 	"github.com/rs/zerolog"
@@ -61,16 +63,33 @@ func main() {
 	_logger.Level(zLogger.LogLevel(conf.LogLevel))
 	var logger zLogger.ZLogger = &_logger
 
-	clientCert, clientLoader, err := loader.CreateClientLoader(conf.Client, logger)
+	var dbClientAddr string
+	if conf.ResolverAddr != "" {
+		dbClientAddr = grpchelper.GetAddress(mediaserverdbproto.DBController_Ping_FullMethodName)
+	} else {
+		if _, ok := conf.GRPCClient["mediaserverdb"]; !ok {
+			logger.Fatal().Msg("no mediaserverdb grpc client defined")
+		}
+		dbClientAddr = conf.GRPCClient["mediaserverdb"]
+	}
+
+	clientCert, clientLoader, err := loader.CreateClientLoader(conf.ClientTLS, logger)
 	if err != nil {
 		logger.Panic().Msgf("cannot create client loader: %v", err)
 	}
 	defer clientLoader.Close()
 
-	if _, ok := conf.GRPCClient["mediaserverdb"]; !ok {
-		logger.Fatal().Msg("no mediaserverdb grpc client defined")
+	if conf.ResolverAddr != "" {
+		logger.Info().Msgf("resolver address is %s", conf.ResolverAddr)
+		miniResolverClient, miniResolverCloser, err := miniresolverClient.CreateClient(conf.ResolverAddr, clientCert)
+		if err != nil {
+			logger.Fatal().Msgf("cannot create resolver client: %v", err)
+		}
+		defer miniResolverCloser.Close()
+		grpchelper.RegisterResolver(miniResolverClient, time.Duration(conf.ResolverTimeout), logger)
 	}
-	dbClient, dbClientConn, err := mediaserverdbClient.CreateClient(conf.GRPCClient["mediaserverdb"], clientCert)
+
+	dbClient, dbClientConn, err := mediaserverdbClient.CreateClient(dbClientAddr, clientCert)
 	if err != nil {
 		logger.Panic().Msgf("cannot create mediaserverdb grpc client: %v", err)
 	}
