@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"github.com/je4/filesystem/v2/pkg/writefs"
 	"github.com/je4/indexer/v2/pkg/indexer"
-	"github.com/je4/mediaserverdb/v2/pkg/mediaserverdbproto"
+	mediaserverdbproto "github.com/je4/mediaserverproto/v2/pkg/mediaserverdb/proto"
 	"github.com/je4/utils/v2/pkg/zLogger"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -115,10 +115,9 @@ func (i *Ingester) doIngest(job *JobStruct) error {
 		Objecttype: &objectType,
 	}
 	var cacheMetadata = &mediaserverdbproto.CacheMetadata{
-		Action:      "item",
-		Params:      "",
-		StorageName: &job.collection.Storage.Name,
-		Path:        job.urn,
+		Action: "item",
+		Params: "",
+		Path:   job.urn,
 	}
 	result, err := i.indexer.Stream(pr, []string{name}, []string{"siegfried", "ffprobe", "tika", "identify", "xml", "checksum"})
 	var resultErrs []error
@@ -139,6 +138,9 @@ func (i *Ingester) doIngest(job *JobStruct) error {
 		cacheMetadata.Size = int64(result.Size)
 		cacheMetadata.MimeType = result.Mimetype
 		cacheMetadata.Path = cachePath
+		if job.ingestType != IngestType_KEEP {
+			cacheMetadata.StorageName = &job.collection.Storage.Name
+		}
 
 	}
 	i.logger.Debug().Msgf("end indexing %s", job.urn)

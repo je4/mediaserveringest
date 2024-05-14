@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"github.com/je4/filesystem/v2/pkg/vfsrw"
 	"github.com/je4/indexer/v2/pkg/indexer"
-	mediaserverdbClient "github.com/je4/mediaserverdb/v2/pkg/client"
-	"github.com/je4/mediaserverdb/v2/pkg/mediaserverdbproto"
 	"github.com/je4/mediaserveringest/v2/config"
 	"github.com/je4/mediaserveringest/v2/internal"
 	"github.com/je4/mediaserveringest/v2/pkg/ingest"
+	mediaserverdbClient "github.com/je4/mediaserverproto/v2/pkg/mediaserverdb/client"
+	mediaserverdbproto "github.com/je4/mediaserverproto/v2/pkg/mediaserverdb/proto"
 	miniresolverClient "github.com/je4/miniresolver/v2/pkg/client"
 	"github.com/je4/miniresolver/v2/pkg/grpchelper"
 	"github.com/je4/trustutil/v2/pkg/loader"
@@ -86,7 +86,7 @@ func main() {
 			logger.Fatal().Msgf("cannot create resolver client: %v", err)
 		}
 		defer miniResolverCloser.Close()
-		grpchelper.RegisterResolver(miniResolverClient, time.Duration(conf.ResolverTimeout), logger)
+		grpchelper.RegisterResolver(miniResolverClient, time.Duration(conf.ResolverTimeout), time.Duration(conf.ResolverNotFoundTimeout), logger)
 	}
 
 	dbClient, dbClientConn, err := mediaserverdbClient.CreateClient(dbClientAddr, clientCert)
