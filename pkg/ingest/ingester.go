@@ -5,6 +5,7 @@ import (
 	"emperror.dev/errors"
 	"encoding/json"
 	"github.com/je4/filesystem/v2/pkg/writefs"
+	genericproto "github.com/je4/genericproto/v2/pkg/generic/proto"
 	"github.com/je4/indexer/v2/pkg/indexer"
 	mediaserverdbproto "github.com/je4/mediaserverproto/v2/pkg/mediaserverdb/proto"
 	"github.com/je4/utils/v2/pkg/zLogger"
@@ -167,7 +168,7 @@ func (i *Ingester) doIngest(job *JobStruct) error {
 	}); err != nil {
 		return errors.Wrapf(err, "cannot set ingest item %s/%s", job.collection.Name, job.signature)
 	} else {
-		if resp.GetStatus() != mediaserverdbproto.ResultStatus_OK {
+		if resp.GetStatus() != genericproto.ResultStatus_OK {
 			return errors.Errorf("cannot set ingest item %s/%s: %s", job.collection.Name, job.signature, resp.GetMessage())
 		} else {
 			i.logger.Debug().Msgf("set ingest item %s/%s: %s", job.collection.Name, job.signature, resp.GetMessage())

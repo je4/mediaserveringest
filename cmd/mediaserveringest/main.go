@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"github.com/je4/filesystem/v2/pkg/vfsrw"
+	genericproto "github.com/je4/genericproto/v2/pkg/generic/proto"
 	"github.com/je4/indexer/v2/pkg/indexer"
 	"github.com/je4/mediaserveringest/v2/config"
 	"github.com/je4/mediaserveringest/v2/internal"
@@ -63,23 +64,15 @@ func main() {
 	_logger.Level(zLogger.LogLevel(conf.LogLevel))
 	var logger zLogger.ZLogger = &_logger
 
-	var dbClientAddr string
-	if conf.ResolverAddr != "" {
-		dbClientAddr = grpchelper.GetAddress(mediaserverdbproto.DBController_Ping_FullMethodName)
-	} else {
-		if _, ok := conf.GRPCClient["mediaserverdb"]; !ok {
-			logger.Fatal().Msg("no mediaserverdb grpc client defined")
-		}
-		dbClientAddr = conf.GRPCClient["mediaserverdb"]
-	}
-
 	clientCert, clientLoader, err := loader.CreateClientLoader(conf.ClientTLS, logger)
 	if err != nil {
 		logger.Panic().Msgf("cannot create client loader: %v", err)
 	}
 	defer clientLoader.Close()
 
+	var dbClientAddr string
 	if conf.ResolverAddr != "" {
+		dbClientAddr = grpchelper.GetAddress(mediaserverdbproto.DBController_Ping_FullMethodName)
 		logger.Info().Msgf("resolver address is %s", conf.ResolverAddr)
 		miniResolverClient, miniResolverCloser, err := miniresolverClient.CreateClient(conf.ResolverAddr, clientCert)
 		if err != nil {
@@ -87,6 +80,11 @@ func main() {
 		}
 		defer miniResolverCloser.Close()
 		grpchelper.RegisterResolver(miniResolverClient, time.Duration(conf.ResolverTimeout), time.Duration(conf.ResolverNotFoundTimeout), logger)
+	} else {
+		if _, ok := conf.GRPCClient["mediaserverdb"]; !ok {
+			logger.Fatal().Msg("no mediaserverdb grpc client defined")
+		}
+		dbClientAddr = conf.GRPCClient["mediaserverdb"]
 	}
 
 	dbClient, dbClientConn, err := mediaserverdbClient.CreateClient(dbClientAddr, clientCert)
@@ -97,7 +95,7 @@ func main() {
 	if resp, err := dbClient.Ping(context.Background(), &emptypb.Empty{}); err != nil {
 		logger.Error().Msgf("cannot ping mediaserverdb: %v", err)
 	} else {
-		if resp.GetStatus() != mediaserverdbproto.ResultStatus_OK {
+		if resp.GetStatus() != genericproto.ResultStatus_OK {
 			logger.Error().Msgf("cannot ping mediaserverdb: %v", resp.GetStatus())
 		} else {
 			logger.Info().Msgf("mediaserverdb ping response: %s", resp.GetMessage())
