@@ -13,7 +13,7 @@ import (
 	mediaserverdbClient "github.com/je4/mediaserverproto/v2/pkg/mediaserverdb/client"
 	mediaserverdbproto "github.com/je4/mediaserverproto/v2/pkg/mediaserverdb/proto"
 	miniresolverClient "github.com/je4/miniresolver/v2/pkg/client"
-	"github.com/je4/miniresolver/v2/pkg/grpchelper"
+	resolverhelper "github.com/je4/miniresolver/v2/pkg/grpchelper"
 	"github.com/je4/trustutil/v2/pkg/loader"
 	"github.com/je4/utils/v2/pkg/zLogger"
 	"github.com/rs/zerolog"
@@ -64,7 +64,7 @@ func main() {
 	_logger.Level(zLogger.LogLevel(conf.LogLevel))
 	var logger zLogger.ZLogger = &_logger
 
-	clientCert, clientLoader, err := loader.CreateClientLoader(conf.ClientTLS, logger)
+	clientTLSConfig, clientLoader, err := loader.CreateClientLoader(conf.ClientTLS, logger)
 	if err != nil {
 		logger.Panic().Msgf("cannot create client loader: %v", err)
 	}
@@ -72,14 +72,14 @@ func main() {
 
 	var dbClientAddr string
 	if conf.ResolverAddr != "" {
-		dbClientAddr = grpchelper.GetAddress(mediaserverdbproto.DBController_Ping_FullMethodName)
+		dbClientAddr = resolverhelper.GetAddress(mediaserverdbproto.DBController_Ping_FullMethodName)
 		logger.Info().Msgf("resolver address is %s", conf.ResolverAddr)
-		miniResolverClient, miniResolverCloser, err := miniresolverClient.CreateClient(conf.ResolverAddr, clientCert)
+		miniResolverClient, miniResolverCloser, err := miniresolverClient.CreateClient(conf.ResolverAddr, clientTLSConfig)
 		if err != nil {
 			logger.Fatal().Msgf("cannot create resolver client: %v", err)
 		}
 		defer miniResolverCloser.Close()
-		grpchelper.RegisterResolver(miniResolverClient, time.Duration(conf.ResolverTimeout), time.Duration(conf.ResolverNotFoundTimeout), logger)
+		resolverhelper.RegisterResolver(miniResolverClient, time.Duration(conf.ResolverTimeout), time.Duration(conf.ResolverNotFoundTimeout), logger)
 	} else {
 		if _, ok := conf.GRPCClient["mediaserverdb"]; !ok {
 			logger.Fatal().Msg("no mediaserverdb grpc client defined")
@@ -87,7 +87,7 @@ func main() {
 		dbClientAddr = conf.GRPCClient["mediaserverdb"]
 	}
 
-	dbClient, dbClientConn, err := mediaserverdbClient.CreateClient(dbClientAddr, clientCert)
+	dbClient, dbClientConn, err := mediaserverdbClient.CreateClient(dbClientAddr, clientTLSConfig)
 	if err != nil {
 		logger.Panic().Msgf("cannot create mediaserverdb grpc client: %v", err)
 	}
@@ -111,41 +111,6 @@ func main() {
 			logger.Error().Err(err).Msg("cannot close vfs")
 		}
 	}()
-
-	/*
-		var src = "vfs://test/ub-reprofiler/mets-container-doi/bau_1/2023/9940561370105504/10_3931_e-rara-20425_20230519T104744_gen6_ver1.zip/10_3931_e-rara-20425/export_mets.xml"
-		var dst = "vfs://tests3/zhbluzern-test/target/export_mets.xml"
-		sourceFP, err := vfs.Open(src)
-		if err != nil {
-			logger.Fatal().Err(err).Msgf("cannot open source file %s", src)
-		}
-		defer sourceFP.Close()
-
-		time.Now().Format(time.DateTime)
-		targetFP, err := vfs.Create(dst)
-		if err != nil {
-			logger.Fatal().Err(err).Msgf("cannot create target file %s", dst)
-		}
-		defer targetFP.Close()
-
-		fi, err := sourceFP.Stat()
-		if err != nil {
-			logger.Fatal().Err(err).Msgf("cannot stat %s", src)
-		}
-		bar := progressbar.DefaultBytes(
-			fi.Size(),
-			"copying",
-		)
-		if num, err := io.Copy(io.MultiWriter(bar, targetFP), sourceFP); err != nil {
-			logger.Fatal().Err(err).Msgf("cannot copy from %s to %s", src, dst)
-		} else {
-			logger.Info().Msgf("copied %d bytes from %s to %s", num, src, dst)
-
-		}
-
-		return
-
-	*/
 
 	var fss = map[string]fs.FS{"internal": internal.InternalFS}
 
