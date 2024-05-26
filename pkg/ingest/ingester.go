@@ -127,11 +127,15 @@ func (i *Ingester) doIngest(job *JobStruct) error {
 		resultErrs = append(resultErrs, err)
 	} else {
 		itemMetadata.Type = &result.Type
+		result.Subtype = strings.ToLower(result.Subtype)
 		itemMetadata.Subtype = &result.Subtype
 		itemMetadata.Mimetype = &result.Mimetype
 		checksum, _ := result.Checksum["sha512"]
 		itemMetadata.Sha512 = &checksum
-		itemMetadata.Metadata, _ = json.Marshal(result.Metadata)
+		if metaBytes, err := json.Marshal(result.Metadata); err == nil {
+			metaString := string(metaBytes)
+			itemMetadata.Metadata = &metaString
+		}
 
 		cacheMetadata.Width = int64(result.Width)
 		cacheMetadata.Height = int64(result.Height)
@@ -140,7 +144,14 @@ func (i *Ingester) doIngest(job *JobStruct) error {
 		cacheMetadata.MimeType = result.Mimetype
 		cacheMetadata.Path = cachePath
 		if job.ingestType != IngestType_KEEP {
-			cacheMetadata.StorageName = &job.collection.Storage.Name
+			cacheMetadata.Storage = &mediaserverdbproto.Storage{
+				Name:       job.collection.Storage.Name,
+				Filebase:   job.collection.Storage.Filebase,
+				Datadir:    job.collection.Storage.Datadir,
+				Subitemdir: job.collection.Storage.Subitemdir,
+				Tempdir:    job.collection.Storage.Tempdir,
+			}
+
 		}
 
 	}

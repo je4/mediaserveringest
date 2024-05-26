@@ -4,12 +4,12 @@ go 1.22.2
 
 require (
 	emperror.dev/errors v0.8.1
-	github.com/BurntSushi/toml v1.3.2
-	github.com/je4/filesystem/v2 v2.0.12
+	github.com/BurntSushi/toml v1.4.0
+	github.com/je4/filesystem/v2 v2.0.13
 	github.com/je4/genericproto/v2 v2.0.3
-	github.com/je4/indexer/v2 v2.0.10
-	github.com/je4/mediaserverdb/v2 v2.0.4
-	github.com/je4/mediaserverproto/v2 v2.0.5
+	github.com/je4/indexer/v2 v2.0.11
+	github.com/je4/mediaserveraction/v2 v2.0.1
+	github.com/je4/mediaserverproto/v2 v2.0.13
 	github.com/je4/miniresolver/v2 v2.0.3
 	github.com/je4/trustutil/v2 v2.0.9
 	github.com/je4/utils/v2 v2.0.33
@@ -27,7 +27,7 @@ require (
 	github.com/dgraph-io/ristretto v0.1.1 // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
-	github.com/gabriel-vasile/mimetype v1.4.3 // indirect
+	github.com/gabriel-vasile/mimetype v1.4.4 // indirect
 	github.com/goccy/go-json v0.10.3 // indirect
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/glog v1.2.1 // indirect
@@ -65,7 +65,7 @@ require (
 	go.step.sm/crypto v0.45.1 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	golang.org/x/crypto v0.23.0 // indirect
-	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842 // indirect
+	golang.org/x/exp v0.0.0-20240525044651-4c93da0ed11d // indirect
 	golang.org/x/image v0.16.0 // indirect
 	golang.org/x/net v0.25.0 // indirect
 	golang.org/x/sys v0.20.0 // indirect
