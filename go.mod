@@ -9,7 +9,7 @@ require (
 	github.com/je4/genericproto/v2 v2.0.3
 	github.com/je4/indexer/v2 v2.0.11
 	github.com/je4/mediaserveraction/v2 v2.0.1
-	github.com/je4/mediaserverproto/v2 v2.0.13
+	github.com/je4/mediaserverproto/v2 v2.0.15
 	github.com/je4/miniresolver/v2 v2.0.3
 	github.com/je4/trustutil/v2 v2.0.9
 	github.com/je4/utils/v2 v2.0.33

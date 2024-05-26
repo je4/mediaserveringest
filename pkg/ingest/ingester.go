@@ -120,6 +120,7 @@ func (i *Ingester) doIngest(job *JobStruct) error {
 		Params: "",
 		Path:   job.urn,
 	}
+	var fullMetadata string
 	result, err := i.indexer.Stream(pr, []string{name}, []string{"siegfried", "ffprobe", "tika", "identify", "xml", "checksum"})
 	var resultErrs []error
 	if err != nil {
@@ -133,8 +134,7 @@ func (i *Ingester) doIngest(job *JobStruct) error {
 		checksum, _ := result.Checksum["sha512"]
 		itemMetadata.Sha512 = &checksum
 		if metaBytes, err := json.Marshal(result.Metadata); err == nil {
-			metaString := string(metaBytes)
-			itemMetadata.Metadata = &metaString
+			fullMetadata = string(metaBytes)
 		}
 
 		cacheMetadata.Width = int64(result.Width)
@@ -176,6 +176,7 @@ func (i *Ingester) doIngest(job *JobStruct) error {
 		Status:        status,
 		ItemMetadata:  itemMetadata,
 		CacheMetadata: cacheMetadata,
+		FullMetadata:  fullMetadata,
 	}); err != nil {
 		return errors.Wrapf(err, "cannot set ingest item %s/%s", job.collection.Name, job.signature)
 	} else {
