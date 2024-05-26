@@ -134,6 +134,36 @@ func (i *Ingester) doIngest(job *JobStruct) error {
 		checksum, _ := result.Checksum["sha512"]
 		itemMetadata.Sha512 = &checksum
 		if metaBytes, err := json.Marshal(result.Metadata); err == nil {
+			metaBytes, err = json.Marshal(struct {
+				Path      string            `json:"path"`
+				Errors    map[string]string `json:"errors,omitempty"`
+				Mimetype  string            `json:"mimetype"`
+				Mimetypes []string          `json:"mimetypes"`
+				Pronom    string            `json:"pronom"`
+				Pronoms   []string          `json:"pronoms"`
+				Width     uint              `json:"width,omitempty"`
+				Height    uint              `json:"height,omitempty"`
+				Duration  uint              `json:"duration,omitempty"`
+				Type      string            `json:"type"`
+				Subtype   string            `json:"subtype"`
+				Metadata  json.RawMessage   `json:"metadata"`
+			}{
+				Path:      job.urn,
+				Errors:    result.Errors,
+				Mimetype:  result.Mimetype,
+				Mimetypes: result.Mimetypes,
+				Pronom:    result.Pronom,
+				Pronoms:   result.Pronoms,
+				Width:     result.Width,
+				Height:    result.Height,
+				Duration:  result.Duration,
+				Type:      result.Type,
+				Subtype:   result.Subtype,
+				Metadata:  metaBytes,
+			})
+			if err != nil {
+				resultErrs = append(resultErrs, err)
+			}
 			fullMetadata = string(metaBytes)
 		}
 
@@ -167,8 +197,7 @@ func (i *Ingester) doIngest(job *JobStruct) error {
 		status = "error"
 		itemError = errors.Combine(resultErrs...).Error()
 	}
-	itemMetadata.Error = &itemError
-	if resp, err := i.dbClient.SetIngestItem(context.Background(), &mediaserverdbproto.IngestMetadata{
+	ingestMetadata := &mediaserverdbproto.IngestMetadata{
 		Item: &mediaserverdbproto.ItemIdentifier{
 			Collection: job.collection.Name,
 			Signature:  job.signature,
@@ -177,7 +206,12 @@ func (i *Ingester) doIngest(job *JobStruct) error {
 		ItemMetadata:  itemMetadata,
 		CacheMetadata: cacheMetadata,
 		FullMetadata:  fullMetadata,
-	}); err != nil {
+	}
+	if itemError != "" {
+		ingestMetadata.Error = &itemError
+	}
+
+	if resp, err := i.dbClient.SetIngestItem(context.Background(), ingestMetadata); err != nil {
 		return errors.Wrapf(err, "cannot set ingest item %s/%s", job.collection.Name, job.signature)
 	} else {
 		if resp.GetStatus() != genericproto.ResultStatus_OK {
