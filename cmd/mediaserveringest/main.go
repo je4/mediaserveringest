@@ -59,8 +59,13 @@ func main() {
 		out = fp
 	}
 
+	hostname, err := os.Hostname()
+	if err != nil {
+		log.Fatalf("cannot get hostname: %v", err)
+	}
+
 	output := zerolog.ConsoleWriter{Out: out, TimeFormat: time.RFC3339}
-	_logger := zerolog.New(output).With().Timestamp().Logger()
+	_logger := zerolog.New(output).With().Timestamp().Str("service", "mediaserveringest"). /*.Array("addrs", zLogger.StringArray(addrStr))*/ Str("host", hostname).Str("addr", conf.LocalAddr).Logger()
 	_logger.Level(zLogger.LogLevel(conf.LogLevel))
 	var logger zLogger.ZLogger = &_logger
 

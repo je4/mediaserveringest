@@ -12,7 +12,7 @@ require (
 	github.com/je4/mediaserverproto/v2 v2.0.21
 	github.com/je4/miniresolver/v2 v2.0.3
 	github.com/je4/trustutil/v2 v2.0.9
-	github.com/je4/utils/v2 v2.0.33
+	github.com/je4/utils/v2 v2.0.37
 	github.com/rs/zerolog v1.33.0
 	google.golang.org/grpc v1.64.0
 	google.golang.org/protobuf v1.34.1
