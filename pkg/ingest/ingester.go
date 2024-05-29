@@ -7,7 +7,7 @@ import (
 	"github.com/je4/filesystem/v2/pkg/writefs"
 	genericproto "github.com/je4/genericproto/v2/pkg/generic/proto"
 	"github.com/je4/indexer/v2/pkg/indexer"
-	mediaserverdbproto "github.com/je4/mediaserverproto/v2/pkg/mediaserverdb/proto"
+	mediaserverproto "github.com/je4/mediaserverproto/v2/pkg/mediaserver/proto"
 	"github.com/je4/utils/v2/pkg/zLogger"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-func NewIngester(indexer *indexer.ActionDispatcher, dbClient mediaserverdbproto.DBControllerClient, vfs fs.FS, concurrentWorkers int, ingestTimeout time.Duration, ingestWait time.Duration, logger zLogger.ZLogger) (*Ingester, error) {
+func NewIngester(indexer *indexer.ActionDispatcher, dbClient mediaserverproto.DatabaseClient, vfs fs.FS, concurrentWorkers int, ingestTimeout time.Duration, ingestWait time.Duration, logger zLogger.ZLogger) (*Ingester, error) {
 	if concurrentWorkers < 1 {
 		return nil, errors.New("concurrentWorkers must be at least 1")
 	}
@@ -43,7 +43,7 @@ func NewIngester(indexer *indexer.ActionDispatcher, dbClient mediaserverdbproto.
 
 type Ingester struct {
 	indexer       *indexer.ActionDispatcher
-	dbClient      mediaserverdbproto.DBControllerClient
+	dbClient      mediaserverproto.DatabaseClient
 	end           chan bool
 	worker        io.Closer
 	jobChan       chan *JobStruct
@@ -112,10 +112,10 @@ func (i *Ingester) doIngest(job *JobStruct) error {
 	}()
 	i.logger.Debug().Msgf("start indexing %s", job.urn)
 	var objectType = "file"
-	var itemMetadata = &mediaserverdbproto.ItemMetadata{
+	var itemMetadata = &mediaserverproto.ItemMetadata{
 		Objecttype: &objectType,
 	}
-	var cacheMetadata = &mediaserverdbproto.CacheMetadata{
+	var cacheMetadata = &mediaserverproto.CacheMetadata{
 		Action: "item",
 		Params: "",
 		Path:   job.urn,
@@ -174,7 +174,7 @@ func (i *Ingester) doIngest(job *JobStruct) error {
 		cacheMetadata.MimeType = result.Mimetype
 		cacheMetadata.Path = cachePath
 		if job.ingestType != IngestType_KEEP {
-			cacheMetadata.Storage = &mediaserverdbproto.Storage{
+			cacheMetadata.Storage = &mediaserverproto.Storage{
 				Name:       job.collection.Storage.Name,
 				Filebase:   job.collection.Storage.Filebase,
 				Datadir:    job.collection.Storage.Datadir,
@@ -197,8 +197,8 @@ func (i *Ingester) doIngest(job *JobStruct) error {
 		status = "error"
 		itemError = errors.Combine(resultErrs...).Error()
 	}
-	ingestMetadata := &mediaserverdbproto.IngestMetadata{
-		Item: &mediaserverdbproto.ItemIdentifier{
+	ingestMetadata := &mediaserverproto.IngestMetadata{
+		Item: &mediaserverproto.ItemIdentifier{
 			Collection: job.collection.Name,
 			Signature:  job.signature,
 		},
