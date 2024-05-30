@@ -6,6 +6,7 @@ require (
 	emperror.dev/errors v0.8.1
 	github.com/BurntSushi/toml v1.4.0
 	github.com/je4/filesystem/v2 v2.0.15
+	github.com/je4/filesystem/v3 v3.0.2
 	github.com/je4/genericproto/v2 v2.0.3
 	github.com/je4/indexer/v2 v2.0.11
 	github.com/je4/mediaserveraction/v2 v2.0.7
@@ -55,7 +56,6 @@ require (
 	github.com/richardlehane/msoleps v1.0.3 // indirect
 	github.com/richardlehane/siegfried v1.11.0 // indirect
 	github.com/richardlehane/xmldetect v1.0.2 // indirect
-	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/ross-spencer/spargo v0.4.1 // indirect
 	github.com/ross-spencer/wikiprov v0.2.0 // indirect
 	github.com/rs/xid v1.5.0 // indirect
@@ -75,3 +75,5 @@ require (
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20240528184218-531527333157 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 )
+
+replace github.com/telkomdev/go-stash => github.com/png-ub/go-stash v0.0.0-20230831094646-7daebd817e31

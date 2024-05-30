@@ -1,15 +1,16 @@
 package main
 
 import (
+	"io/fs"
+	"os"
+
 	"emperror.dev/errors"
 	"github.com/BurntSushi/toml"
-	"github.com/je4/filesystem/v2/pkg/vfsrw"
+	"github.com/je4/filesystem/v3/pkg/vfsrw"
 	"github.com/je4/indexer/v2/pkg/indexer"
 	loaderConfig "github.com/je4/trustutil/v2/pkg/config"
 	configutil "github.com/je4/utils/v2/pkg/config"
 	"github.com/je4/utils/v2/pkg/zLogger"
-	"io/fs"
-	"os"
 )
 
 type MediaserverIngestConfig struct {

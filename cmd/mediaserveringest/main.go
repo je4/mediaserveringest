@@ -4,7 +4,16 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
-	"github.com/je4/filesystem/v2/pkg/vfsrw"
+	"io"
+	"io/fs"
+	"log"
+	"os"
+	"os/signal"
+	"path/filepath"
+	"syscall"
+	"time"
+
+	"github.com/je4/filesystem/v3/pkg/vfsrw"
 	"github.com/je4/indexer/v2/pkg/indexer"
 	"github.com/je4/mediaserveringest/v2/config"
 	"github.com/je4/mediaserveringest/v2/internal"
@@ -14,14 +23,6 @@ import (
 	"github.com/je4/trustutil/v2/pkg/loader"
 	"github.com/je4/utils/v2/pkg/zLogger"
 	ublogger "gitlab.switch.ch/ub-unibas/go-ublogger"
-	"io"
-	"io/fs"
-	"log"
-	"os"
-	"os/signal"
-	"path/filepath"
-	"syscall"
-	"time"
 )
 
 var cfg = flag.String("config", "", "location of toml configuration file")
@@ -95,7 +96,7 @@ func main() {
 	}
 	resolver.DoPing(dbClient, logger)
 
-	vfs, err := vfsrw.NewFS(conf.VFS, zLogger.NewZWrapper(logger))
+	vfs, err := vfsrw.NewFS(conf.VFS, &l2)
 	if err != nil {
 		logger.Panic().Err(err).Msg("cannot create vfs")
 	}
