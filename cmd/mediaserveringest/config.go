@@ -5,8 +5,9 @@ import (
 	"github.com/BurntSushi/toml"
 	"github.com/je4/filesystem/v2/pkg/vfsrw"
 	"github.com/je4/indexer/v2/pkg/indexer"
-	"github.com/je4/trustutil/v2/pkg/loader"
+	loaderConfig "github.com/je4/trustutil/v2/pkg/config"
 	configutil "github.com/je4/utils/v2/pkg/config"
+	"github.com/je4/utils/v2/pkg/zLogger"
 	"io/fs"
 	"os"
 )
@@ -16,18 +17,17 @@ type MediaserverIngestConfig struct {
 	ResolverAddr            string              `toml:"resolveraddr"`
 	ResolverTimeout         configutil.Duration `toml:"resolvertimeout"`
 	ResolverNotFoundTimeout configutil.Duration `toml:"resolvernotfoundtimeout"`
-	LogFile                 string              `toml:"logfile"`
-	LogLevel                string              `toml:"loglevel"`
 
-	IngestTimeout   configutil.Duration `toml:"ingesttimeout"`
-	IngestWait      configutil.Duration `toml:"ingestwait"`
-	ConcurrentTasks int                 `toml:"concurrenttasks"`
-	GRPCClient      map[string]string   `toml:"grpcclient"`
-	ClientTLS       *loader.TLSConfig   `toml:"client"`
+	IngestTimeout   configutil.Duration     `toml:"ingesttimeout"`
+	IngestWait      configutil.Duration     `toml:"ingestwait"`
+	ConcurrentTasks int                     `toml:"concurrenttasks"`
+	GRPCClient      map[string]string       `toml:"grpcclient"`
+	ClientTLS       *loaderConfig.TLSConfig `toml:"client"`
 
 	Indexer *indexer.IndexerConfig
 
 	VFS map[string]*vfsrw.VFS `toml:"vfs"`
+	Log zLogger.Config        `toml:"log"`
 }
 
 func LoadMediaserverIngestConfig(fSys fs.FS, fp string, conf *MediaserverIngestConfig) error {

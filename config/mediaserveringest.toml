@@ -10,6 +10,25 @@ ingestwait = "20s"
 [grpcclient]
 #mediaserverdb = "localhost:7653"
 
+[log]
+level = "debug"
+
+[log.stash]
+#logstash_host="sb-uwf4.swissbib.unibas.ch"
+logstashhost="localhost"
+logstashport=5046
+logstashtracelevel="ERROR"
+namespace="mediaserveringest"
+dataset=""
+#dataset="logs-mediaserver"
+[log.stash.tls]
+type="file"
+cert="certs/ub-log.ub.unibas.ch.cert.pem"
+key="certs/ub-log.ub.unibas.ch.key.pem"
+ca="certs/ca.crt"
+interval="1h"
+
+
 [vfs.test]
 name = "test"
 type = "sftp"
