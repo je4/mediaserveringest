@@ -4,7 +4,7 @@ import (
 	"context"
 	"emperror.dev/errors"
 	"encoding/json"
-	"github.com/je4/filesystem/v2/pkg/writefs"
+	"github.com/je4/filesystem/v3/pkg/writefs"
 	genericproto "github.com/je4/genericproto/v2/pkg/generic/proto"
 	"github.com/je4/indexer/v2/pkg/indexer"
 	mediaserverproto "github.com/je4/mediaserverproto/v2/pkg/mediaserver/proto"
