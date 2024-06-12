@@ -25,9 +25,14 @@ dataset=""
 type="file"
 cert="certs/ub-log.ub.unibas.ch.cert.pem"
 key="certs/ub-log.ub.unibas.ch.key.pem"
-ca="certs/ca.crt"
+ca=["certs/ca.crt"]
 interval="1h"
 
+[vfs.drivec]
+name = "drivec"
+type = "os"
+[vfs.drivec.os]
+basedir = "C:/Users/micro/Downloads"
 
 [vfs.test]
 name = "test"
