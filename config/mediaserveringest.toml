@@ -1,4 +1,5 @@
 localaddr = ":8761"
+clientdomain = "ubmedia"
 loglevel = "DEBUG"
 resolveraddr = "[::1]:7777"
 resolvertimeout = "10m"
