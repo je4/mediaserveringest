@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"github.com/je4/filesystem/v3/pkg/writefs"
 	genericproto "github.com/je4/genericproto/v2/pkg/generic/proto"
-	"github.com/je4/indexer/v2/pkg/indexer"
+	"github.com/je4/indexer/v3/pkg/indexer"
 	mediaserverproto "github.com/je4/mediaserverproto/v2/pkg/mediaserver/proto"
 	"github.com/je4/utils/v2/pkg/zLogger"
 	"google.golang.org/grpc/codes"

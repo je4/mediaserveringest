@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"github.com/je4/filesystem/v3/pkg/vfsrw"
-	"github.com/je4/indexer/v2/pkg/indexer"
+	"github.com/je4/indexer/v3/pkg/indexer"
 	"github.com/je4/mediaserveringest/v2/config"
 	"github.com/je4/mediaserveringest/v2/internal"
 	"github.com/je4/mediaserveringest/v2/pkg/ingest"
@@ -112,7 +112,7 @@ func main() {
 
 	var fss = map[string]fs.FS{"internal": internal.InternalFS}
 
-	indexerActions, err := indexer.InitActionDispatcher(fss, *conf.Indexer, zLogger.NewZWrapper(logger))
+	indexerActions, err := indexer.InitActionDispatcher(fss, *conf.Indexer, logger)
 	if err != nil {
 		logger.Panic().Err(err).Msg("cannot init indexer")
 	}
