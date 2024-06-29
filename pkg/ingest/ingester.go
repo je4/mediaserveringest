@@ -58,6 +58,32 @@ type WriterNopcloser struct {
 
 func (WriterNopcloser) Close() error { return nil }
 
+func (i *Ingester) IngestError(ierr error, job *JobStruct) error {
+	errStr := ierr.Error()
+	ingestMetadata := &mediaserverproto.IngestMetadata{
+		Item: &mediaserverproto.ItemIdentifier{
+			Collection: job.collection.Name,
+			Signature:  job.signature,
+		},
+		Status:        "error",
+		Error:         &errStr,
+		ItemMetadata:  &mediaserverproto.ItemMetadata{},
+		CacheMetadata: &mediaserverproto.CacheMetadata{},
+		FullMetadata:  "",
+	}
+
+	if resp, err := i.dbClient.SetIngestItem(context.Background(), ingestMetadata); err != nil {
+		return errors.Combine(ierr, errors.Wrapf(err, "cannot set ingest item %s/%s", job.collection.Name, job.signature))
+	} else {
+		if resp.GetStatus() != genericproto.ResultStatus_OK {
+			return errors.Combine(ierr, errors.Errorf("cannot set ingest item %s/%s: %s", job.collection.Name, job.signature, resp.GetMessage()))
+		} else {
+			i.logger.Debug().Msgf("set ingest item %s/%s: %s", job.collection.Name, job.signature, resp.GetMessage())
+		}
+	}
+	return ierr
+}
+
 func (i *Ingester) doIngest(job *JobStruct) error {
 	i.logger.Debug().Msgf("ingest %s/%s", job.collection.Name, job.signature)
 
@@ -82,16 +108,16 @@ func (i *Ingester) doIngest(job *JobStruct) error {
 		targetWriter, err = writefs.Create(i.vfs, fullpath)
 		i.logger.Debug().Msgf("move %s/%s -> %s", job.collection.Name, job.signature, fullpath)
 	default:
-		return errors.Errorf("unknown ingest type %d", job.ingestType)
+		return i.IngestError(errors.Errorf("unknown ingest type %d", job.ingestType), job)
 	}
 	if err != nil {
-		return errors.Wrapf(err, "cannot create %s", job.urn)
+		return i.IngestError(errors.Wrapf(err, "cannot create %s", job.urn), job)
 	}
 
 	sourceReader, err := i.vfs.Open(job.urn)
 	if err != nil {
 		targetWriter.Close()
-		return errors.Wrapf(err, "cannot open %s", job.urn)
+		return i.IngestError(errors.Wrapf(err, "cannot open %s", job.urn), job)
 	}
 	defer sourceReader.Close()
 
