@@ -163,6 +163,9 @@ Signature = "internal:/siegfried/default.sig"
 [Indexer.Siegfried.TypeMap."fmt/483"]
 Type = "text"
 Subtype = "epub"
+[Indexer.Siegfried.TypeMap."fmt/158"]
+Type = "text"
+Subtype = "pdf"
 
 # mapping of pronom id to mimetype if not found in siegfried
 [Indexer.Siegfried.MimeMap]
