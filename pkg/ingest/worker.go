@@ -41,6 +41,7 @@ type collectionStruct struct {
 }
 
 type JobStruct struct {
+	domain     string
 	collection *collectionStruct
 	signature  string
 	urn        string

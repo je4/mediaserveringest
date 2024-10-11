@@ -19,7 +19,15 @@ import (
 	"time"
 )
 
-func NewIngester(indexer *indexer.ActionDispatcher, dbClient mediaserverproto.DatabaseClient, vfs fs.FS, concurrentWorkers int, ingestTimeout time.Duration, ingestWait time.Duration, logger zLogger.ZLogger) (*Ingester, error) {
+func NewIngester(
+	indexer *indexer.ActionDispatcher,
+	dbClients map[string]mediaserverproto.DatabaseClient,
+	vfs fs.FS,
+	concurrentWorkers int,
+	ingestTimeout time.Duration,
+	ingestWait time.Duration,
+	domains []string,
+	logger zLogger.ZLogger) (*Ingester, error) {
 	if concurrentWorkers < 1 {
 		return nil, errors.New("concurrentWorkers must be at least 1")
 	}
@@ -28,7 +36,8 @@ func NewIngester(indexer *indexer.ActionDispatcher, dbClient mediaserverproto.Da
 	}
 	i := &Ingester{
 		indexer:       indexer,
-		dbClient:      dbClient,
+		domains:       domains,
+		dbClients:     dbClients,
 		end:           make(chan bool),
 		jobChan:       make(chan *JobStruct),
 		ingestTimeout: ingestTimeout,
@@ -42,8 +51,9 @@ func NewIngester(indexer *indexer.ActionDispatcher, dbClient mediaserverproto.Da
 }
 
 type Ingester struct {
+	domains       []string
 	indexer       *indexer.ActionDispatcher
-	dbClient      mediaserverproto.DatabaseClient
+	dbClients     map[string]mediaserverproto.DatabaseClient
 	end           chan bool
 	worker        io.Closer
 	jobChan       chan *JobStruct
@@ -60,6 +70,11 @@ func (WriterNopcloser) Close() error { return nil }
 
 func (i *Ingester) IngestError(ierr error, job *JobStruct) error {
 	errStr := ierr.Error()
+	dbClient, ok := i.dbClients[job.domain]
+	if !ok {
+		return errors.Errorf("cannot set ingest item %s/%s to error '%s' - invalid domain '%s'", job.collection.Name, job.signature, errStr, job.domain)
+	}
+
 	ingestMetadata := &mediaserverproto.IngestMetadata{
 		Item: &mediaserverproto.ItemIdentifier{
 			Collection: job.collection.Name,
@@ -72,7 +87,7 @@ func (i *Ingester) IngestError(ierr error, job *JobStruct) error {
 		FullMetadata:  "",
 	}
 
-	if resp, err := i.dbClient.SetIngestItem(context.Background(), ingestMetadata); err != nil {
+	if resp, err := dbClient.SetIngestItem(context.Background(), ingestMetadata); err != nil {
 		return errors.Combine(ierr, errors.Wrapf(err, "cannot set ingest item %s/%s", job.collection.Name, job.signature))
 	} else {
 		if resp.GetStatus() != genericproto.ResultStatus_OK {
@@ -86,6 +101,11 @@ func (i *Ingester) IngestError(ierr error, job *JobStruct) error {
 
 func (i *Ingester) doIngest(job *JobStruct) error {
 	i.logger.Debug().Msgf("ingest %s/%s", job.collection.Name, job.signature)
+
+	dbClient, ok := i.dbClients[job.domain]
+	if !ok {
+		return errors.Errorf("cannot set ingest item %s/%s - invalid domain %s", job.collection.Name, job.signature, job.domain)
+	}
 
 	var targetWriter io.WriteCloser
 	var err error
@@ -237,7 +257,7 @@ func (i *Ingester) doIngest(job *JobStruct) error {
 		ingestMetadata.Error = &itemError
 	}
 
-	if resp, err := i.dbClient.SetIngestItem(context.Background(), ingestMetadata); err != nil {
+	if resp, err := dbClient.SetIngestItem(context.Background(), ingestMetadata); err != nil {
 		return errors.Wrapf(err, "cannot set ingest item %s/%s", job.collection.Name, job.signature)
 	} else {
 		if resp.GetStatus() != genericproto.ResultStatus_OK {
@@ -251,51 +271,66 @@ func (i *Ingester) doIngest(job *JobStruct) error {
 
 func (i *Ingester) Start() error {
 	go func() {
+		// todo: refactor this loop
 		for {
 			for {
-				item, err := i.dbClient.GetIngestItem(context.Background(), &emptypb.Empty{})
-				if err != nil {
-					if s, ok := status.FromError(err); ok {
-						if s.Code() == codes.NotFound {
-							i.logger.Info().Msg("no ingest item available")
+				doBreak := false
+				for _, domain := range i.domains {
+					dbClient, ok := i.dbClients[domain]
+					if !ok {
+						i.logger.Fatal().Msgf("invalid domain %s", domain)
+						return
+					}
+					item, err := dbClient.GetIngestItem(context.Background(), &emptypb.Empty{})
+					if err != nil {
+						if s, ok := status.FromError(err); ok {
+							if s.Code() == codes.NotFound {
+								i.logger.Info().Msg("no ingest item available")
+							} else {
+								i.logger.Error().Err(err).Msg("cannot get ingest item")
+							}
 						} else {
 							i.logger.Error().Err(err).Msg("cannot get ingest item")
 						}
-					} else {
-						i.logger.Error().Err(err).Msg("cannot get ingest item")
+						doBreak = true
+						continue // on all errors we break
 					}
-					break // on all errors we break
-				}
-				if item.GetIdentifier() == nil {
-					i.logger.Error().Msg("empty identifier")
-					break
-				}
+					if item.GetIdentifier() == nil {
+						i.logger.Error().Msg("empty identifier")
+						doBreak = true
+						continue
+					}
 
-				coll := item.GetCollection()
-				stor := coll.GetStorage()
-				job := &JobStruct{
-					signature:  item.GetIdentifier().GetSignature(),
-					urn:        item.GetUrn(),
-					ingestType: IngestType(item.GetIngestType()),
-					collection: &collectionStruct{
-						Name: coll.GetName(),
-						Storage: &storageStruct{
-							Name:       stor.GetName(),
-							Filebase:   stor.GetFilebase(),
-							Datadir:    stor.GetDatadir(),
-							Subitemdir: stor.GetSubitemdir(),
-							Tempdir:    stor.GetTempdir(),
+					coll := item.GetCollection()
+					stor := coll.GetStorage()
+					job := &JobStruct{
+						domain:     domain,
+						signature:  item.GetIdentifier().GetSignature(),
+						urn:        item.GetUrn(),
+						ingestType: IngestType(item.GetIngestType()),
+						collection: &collectionStruct{
+							Name: coll.GetName(),
+							Storage: &storageStruct{
+								Name:       stor.GetName(),
+								Filebase:   stor.GetFilebase(),
+								Datadir:    stor.GetDatadir(),
+								Subitemdir: stor.GetSubitemdir(),
+								Tempdir:    stor.GetTempdir(),
+							},
 						},
-					},
+					}
+					i.jobChan <- job
+					i.logger.Debug().Msgf("[%s] ingest item %s/%s", job.domain, job.collection.Name, job.signature)
+					// check for end without blocking
+					select {
+					case <-i.end:
+						close(i.end)
+						return
+					default:
+					}
 				}
-				i.jobChan <- job
-				i.logger.Debug().Msgf("ingest item %s/%s", job.collection.Name, job.signature)
-				// check for end without blocking
-				select {
-				case <-i.end:
-					close(i.end)
-					return
-				default:
+				if doBreak {
+					break
 				}
 			}
 			select {

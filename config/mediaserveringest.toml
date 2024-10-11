@@ -1,5 +1,5 @@
 localaddr = ":8761"
-clientdomain = "ubmedia"
+domains = ["ubmedia"]
 loglevel = "DEBUG"
 resolveraddr = "[::1]:7777"
 resolvertimeout = "10m"
@@ -8,26 +8,24 @@ concurrenttasks = 3 # number of concurrent must be less or equal to number of se
 ingesttimeout = "10m"
 ingestwait = "20s"
 
-[grpcclient]
-#mediaserverdb = "localhost:7653"
-
-[log]
-level = "debug"
-
-[log.stash]
-#logstash_host="sb-uwf4.swissbib.unibas.ch"
-logstashhost="localhost"
-logstashport=5046
-logstashtracelevel="ERROR"
-namespace="mediaserveringest"
-dataset=""
-#dataset="logs-mediaserver"
-[log.stash.tls]
-type="file"
-cert="certs/ub-log.ub.unibas.ch.cert.pem"
-key="certs/ub-log.ub.unibas.ch.key.pem"
-ca=["certs/ca.crt"]
-interval="1h"
+[client]
+type = "minivault"
+initialtimeout = "1h"
+[client.minivault]
+baseurl = "https://localhost:8759/api/v1"
+parenttoken = "pa.2dd3e62df04c31a3.e09c244e457d4c4f"
+tokentype = "client_cert"
+tokenpolicies = ["ubmedia.mediaserveringest"]
+tokeninterval = "48h"
+tokenttl = "96h"
+certtype = "client_cert"
+dnss = []
+uris = ["grpc:ubmedia.mediaserverproto.Database", "grpc:mediathek.mediaserverproto.Database", "grpc:miniresolverproto.MiniResolver"]
+ips = []
+certinterval = "24h"
+certttl = "48h"
+ca = ["certs/minivault.ca.pem"]
+usesystempool = false
 
 [vfs.drivec]
 name = "drivec"
@@ -56,33 +54,7 @@ Endpoint = "s3-zh.lts.switch.ch"
 Region = "zurich"
 UseSSL = true
 Debug = false
-CAPEM = """-----BEGIN CERTIFICATE-----
-MIIEVzCCAj+gAwIBAgIRALBXPpFzlydw27SHyzpFKzgwDQYJKoZIhvcNAQELBQAw
-TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
-cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMjQwMzEzMDAwMDAw
-WhcNMjcwMzEyMjM1OTU5WjAyMQswCQYDVQQGEwJVUzEWMBQGA1UEChMNTGV0J3Mg
-RW5jcnlwdDELMAkGA1UEAxMCRTYwdjAQBgcqhkjOPQIBBgUrgQQAIgNiAATZ8Z5G
-h/ghcWCoJuuj+rnq2h25EqfUJtlRFLFhfHWWvyILOR/VvtEKRqotPEoJhC6+QJVV
-6RlAN2Z17TJOdwRJ+HB7wxjnzvdxEP6sdNgA1O1tHHMWMxCcOrLqbGL0vbijgfgw
-gfUwDgYDVR0PAQH/BAQDAgGGMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcD
-ATASBgNVHRMBAf8ECDAGAQH/AgEAMB0GA1UdDgQWBBSTJ0aYA6lRaI6Y1sRCSNsj
-v1iU0jAfBgNVHSMEGDAWgBR5tFnme7bl5AFzgAiIyBpY9umbbjAyBggrBgEFBQcB
-AQQmMCQwIgYIKwYBBQUHMAKGFmh0dHA6Ly94MS5pLmxlbmNyLm9yZy8wEwYDVR0g
-BAwwCjAIBgZngQwBAgEwJwYDVR0fBCAwHjAcoBqgGIYWaHR0cDovL3gxLmMubGVu
-Y3Iub3JnLzANBgkqhkiG9w0BAQsFAAOCAgEAfYt7SiA1sgWGCIpunk46r4AExIRc
-MxkKgUhNlrrv1B21hOaXN/5miE+LOTbrcmU/M9yvC6MVY730GNFoL8IhJ8j8vrOL
-pMY22OP6baS1k9YMrtDTlwJHoGby04ThTUeBDksS9RiuHvicZqBedQdIF65pZuhp
-eDcGBcLiYasQr/EO5gxxtLyTmgsHSOVSBcFOn9lgv7LECPq9i7mfH3mpxgrRKSxH
-pOoZ0KXMcB+hHuvlklHntvcI0mMMQ0mhYj6qtMFStkF1RpCG3IPdIwpVCQqu8GV7
-s8ubknRzs+3C/Bm19RFOoiPpDkwvyNfvmQ14XkyqqKK5oZ8zhD32kFRQkxa8uZSu
-h4aTImFxknu39waBxIRXE4jKxlAmQc4QjFZoq1KmQqQg0J/1JF8RlFvJas1VcjLv
-YlvUB2t6npO6oQjB3l+PNf0DpQH7iUx3Wz5AjQCi6L25FjyE06q6BZ/QlmtYdl/8
-ZYao4SRqPEs/6cAiF+Qf5zg2UkaWtDphl1LKMuTNLotvsX99HP69V2faNyegodQ0
-LyTApr/vT01YPE46vNsDLgK+4cL6TrzC/a4WcmF5SRJ938zrv/duJHLXQIku5v0+
-EwOy59Hdm0PT/Er/84dDV0CSjdR/2XuZM3kpysSKLgD1cKiDA+IRguODCxfO9cyY
-Ig46v9mFmBvyH04=
------END CERTIFICATE-----
-"""
+CAPEM = ""
 BaseUrl = ""
 ZipAsFolderCache = 0
 
@@ -98,36 +70,7 @@ UseSSL = true
 Debug = false
 BaseUrl = ""
 ZipAsFolderCache = 0
-CAPEM = """-----BEGIN CERTIFICATE-----
-MIIEVzCCAj+gAwIBAgIRALBXPpFzlydw27SHyzpFKzgwDQYJKoZIhvcNAQELBQAw
-TzELMAkGA1UEBhMCVVMxKTAnBgNVBAoTIEludGVybmV0IFNlY3VyaXR5IFJlc2Vh
-cmNoIEdyb3VwMRUwEwYDVQQDEwxJU1JHIFJvb3QgWDEwHhcNMjQwMzEzMDAwMDAw
-WhcNMjcwMzEyMjM1OTU5WjAyMQswCQYDVQQGEwJVUzEWMBQGA1UEChMNTGV0J3Mg
-RW5jcnlwdDELMAkGA1UEAxMCRTYwdjAQBgcqhkjOPQIBBgUrgQQAIgNiAATZ8Z5G
-h/ghcWCoJuuj+rnq2h25EqfUJtlRFLFhfHWWvyILOR/VvtEKRqotPEoJhC6+QJVV
-6RlAN2Z17TJOdwRJ+HB7wxjnzvdxEP6sdNgA1O1tHHMWMxCcOrLqbGL0vbijgfgw
-gfUwDgYDVR0PAQH/BAQDAgGGMB0GA1UdJQQWMBQGCCsGAQUFBwMCBggrBgEFBQcD
-ATASBgNVHRMBAf8ECDAGAQH/AgEAMB0GA1UdDgQWBBSTJ0aYA6lRaI6Y1sRCSNsj
-v1iU0jAfBgNVHSMEGDAWgBR5tFnme7bl5AFzgAiIyBpY9umbbjAyBggrBgEFBQcB
-AQQmMCQwIgYIKwYBBQUHMAKGFmh0dHA6Ly94MS5pLmxlbmNyLm9yZy8wEwYDVR0g
-BAwwCjAIBgZngQwBAgEwJwYDVR0fBCAwHjAcoBqgGIYWaHR0cDovL3gxLmMubGVu
-Y3Iub3JnLzANBgkqhkiG9w0BAQsFAAOCAgEAfYt7SiA1sgWGCIpunk46r4AExIRc
-MxkKgUhNlrrv1B21hOaXN/5miE+LOTbrcmU/M9yvC6MVY730GNFoL8IhJ8j8vrOL
-pMY22OP6baS1k9YMrtDTlwJHoGby04ThTUeBDksS9RiuHvicZqBedQdIF65pZuhp
-eDcGBcLiYasQr/EO5gxxtLyTmgsHSOVSBcFOn9lgv7LECPq9i7mfH3mpxgrRKSxH
-pOoZ0KXMcB+hHuvlklHntvcI0mMMQ0mhYj6qtMFStkF1RpCG3IPdIwpVCQqu8GV7
-s8ubknRzs+3C/Bm19RFOoiPpDkwvyNfvmQ14XkyqqKK5oZ8zhD32kFRQkxa8uZSu
-h4aTImFxknu39waBxIRXE4jKxlAmQc4QjFZoq1KmQqQg0J/1JF8RlFvJas1VcjLv
-YlvUB2t6npO6oQjB3l+PNf0DpQH7iUx3Wz5AjQCi6L25FjyE06q6BZ/QlmtYdl/8
-ZYao4SRqPEs/6cAiF+Qf5zg2UkaWtDphl1LKMuTNLotvsX99HP69V2faNyegodQ0
-LyTApr/vT01YPE46vNsDLgK+4cL6TrzC/a4WcmF5SRJ938zrv/duJHLXQIku5v0+
-EwOy59Hdm0PT/Er/84dDV0CSjdR/2XuZM3kpysSKLgD1cKiDA+IRguODCxfO9cyY
-Ig46v9mFmBvyH04=
------END CERTIFICATE-----
-"""
-
-[client]
-type = "dev"
+CAPEM = ""
 
 [Indexer]
 Enabled=true
@@ -269,3 +212,21 @@ regexpMimeMetaNot = "^(image|video|audio)/.*$"
 online = true
 enabled = true
 
+[log]
+level = "debug"
+
+[log.stash]
+#logstash_host="sb-uwf4.swissbib.unibas.ch"
+logstashhost="localhost"
+logstashport=5046
+logstashtracelevel="ERROR"
+namespace="minivault"
+dataset=""
+#dataset="logs-mediaserver"
+[log.stash.tls]
+type="file"
+ca=["certs/ca.crt"]
+interval="1h"
+[log.stash.tls.file]
+cert="certs/ub-log.ub.unibas.ch.cert.pem"
+key="certs/ub-log.ub.unibas.ch.key.pem"

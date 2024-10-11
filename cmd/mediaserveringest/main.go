@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/je4/certloader/v2/pkg/loader"
 	"github.com/je4/filesystem/v3/pkg/vfsrw"
 	"github.com/je4/indexer/v3/pkg/indexer"
 	"github.com/je4/mediaserveringest/v2/config"
@@ -20,7 +21,6 @@ import (
 	"github.com/je4/mediaserveringest/v2/pkg/ingest"
 	mediaserverproto "github.com/je4/mediaserverproto/v2/pkg/mediaserver/proto"
 	"github.com/je4/miniresolver/v2/pkg/resolver"
-	"github.com/je4/trustutil/v2/pkg/loader"
 	"github.com/je4/utils/v2/pkg/zLogger"
 	ublogger "gitlab.switch.ch/ub-unibas/go-ublogger"
 )
@@ -61,12 +61,15 @@ func main() {
 		defer loggerLoader.Close()
 	}
 
-	_logger, _logstash, _logfile := ublogger.CreateUbMultiLoggerTLS(conf.Log.Level, conf.Log.File,
+	_logger, _logstash, _logfile, err := ublogger.CreateUbMultiLoggerTLS(conf.Log.Level, conf.Log.File,
 		ublogger.SetDataset(conf.Log.Stash.Dataset),
 		ublogger.SetLogStash(conf.Log.Stash.LogstashHost, conf.Log.Stash.LogstashPort, conf.Log.Stash.Namespace, conf.Log.Stash.LogstashTraceLevel),
 		ublogger.SetTLS(conf.Log.Stash.TLS != nil),
 		ublogger.SetTLSConfig(loggerTLSConfig),
 	)
+	if err != nil {
+		log.Fatalf("cannot create logger: %v", err)
+	}
 	if _logstash != nil {
 		defer _logstash.Close()
 	}
@@ -90,15 +93,18 @@ func main() {
 	}
 	defer miniResolverClient.Close()
 
-	var domainPrefix string
-	if conf.ClientDomain != "" {
-		domainPrefix = conf.ClientDomain + "."
-	}
-	dbClient, err := resolver.NewClient[mediaserverproto.DatabaseClient](miniResolverClient, mediaserverproto.NewDatabaseClient, domainPrefix+mediaserverproto.Database_ServiceDesc.ServiceName)
+	dbClients, err := resolver.NewClients[mediaserverproto.DatabaseClient](
+		miniResolverClient,
+		mediaserverproto.NewDatabaseClient,
+		mediaserverproto.Database_ServiceDesc.ServiceName,
+		conf.Domains,
+	)
 	if err != nil {
 		logger.Panic().Msgf("cannot create mediaserverdb grpc client: %v", err)
 	}
-	resolver.DoPing(dbClient, logger)
+	for _, dbClient := range dbClients {
+		resolver.DoPing(dbClient, logger)
+	}
 
 	vfs, err := vfsrw.NewFS(conf.VFS, &l2)
 	if err != nil {
@@ -117,7 +123,7 @@ func main() {
 		logger.Panic().Err(err).Msg("cannot init indexer")
 	}
 
-	ingester, err := ingest.NewIngester(indexerActions, dbClient, vfs, conf.ConcurrentTasks, time.Duration(conf.IngestTimeout), time.Duration(conf.IngestWait), logger)
+	ingester, err := ingest.NewIngester(indexerActions, dbClients, vfs, conf.ConcurrentTasks, time.Duration(conf.IngestTimeout), time.Duration(conf.IngestWait), conf.Domains, logger)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("cannot create ingester")
 	}

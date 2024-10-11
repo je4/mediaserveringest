@@ -1,35 +1,34 @@
 package main
 
 import (
-	"io/fs"
-	"os"
-
 	"emperror.dev/errors"
 	"github.com/BurntSushi/toml"
+	loaderConfig "github.com/je4/certloader/v2/pkg/loader"
 	"github.com/je4/filesystem/v3/pkg/vfsrw"
 	"github.com/je4/indexer/v3/pkg/indexer"
-	loaderConfig "github.com/je4/trustutil/v2/pkg/config"
-	configutil "github.com/je4/utils/v2/pkg/config"
-	"github.com/je4/utils/v2/pkg/zLogger"
+	"github.com/je4/utils/v2/pkg/config"
+	"github.com/je4/utils/v2/pkg/stashconfig"
+	"io/fs"
+	"os"
 )
 
 type MediaserverIngestConfig struct {
-	LocalAddr               string              `toml:"localaddr"`
-	ClientDomain            string              `toml:"clientdomain"`
-	ResolverAddr            string              `toml:"resolveraddr"`
-	ResolverTimeout         configutil.Duration `toml:"resolvertimeout"`
-	ResolverNotFoundTimeout configutil.Duration `toml:"resolvernotfoundtimeout"`
+	LocalAddr               string          `toml:"localaddr"`
+	Domains                 []string        `toml:"domains"`
+	ResolverAddr            string          `toml:"resolveraddr"`
+	ResolverTimeout         config.Duration `toml:"resolvertimeout"`
+	ResolverNotFoundTimeout config.Duration `toml:"resolvernotfoundtimeout"`
 
-	IngestTimeout   configutil.Duration     `toml:"ingesttimeout"`
-	IngestWait      configutil.Duration     `toml:"ingestwait"`
-	ConcurrentTasks int                     `toml:"concurrenttasks"`
-	GRPCClient      map[string]string       `toml:"grpcclient"`
-	ClientTLS       *loaderConfig.TLSConfig `toml:"client"`
+	IngestTimeout   config.Duration      `toml:"ingesttimeout"`
+	IngestWait      config.Duration      `toml:"ingestwait"`
+	ConcurrentTasks int                  `toml:"concurrenttasks"`
+	GRPCClient      map[string]string    `toml:"grpcclient"`
+	ClientTLS       *loaderConfig.Config `toml:"client"`
 
 	Indexer *indexer.IndexerConfig
 
 	VFS map[string]*vfsrw.VFS `toml:"vfs"`
-	Log zLogger.Config        `toml:"log"`
+	Log stashconfig.Config    `toml:"log"`
 }
 
 func LoadMediaserverIngestConfig(fSys fs.FS, fp string, conf *MediaserverIngestConfig) error {
